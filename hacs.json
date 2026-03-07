@@ -1,3 +1,4 @@
 {
-  "name": "Claude Pulse"
+  "name": "Claude Pulse",
+  "homeassistant": "2024.1.0"
 }
