@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Claude.ai",
-        "description": "Enter your Claude.ai credentials.\n\n**How to find your Session Key:**\n1. Open [claude.ai](https://claude.ai) and log in\n2. Open DevTools (F12) → Application → Cookies → `https://claude.ai`\n3. Copy the value of the `sessionKey` cookie\n\n**How to find your Organization ID:**\n1. In DevTools, open the Network tab and reload the page\n2. Find any request URL containing `/api/organizations/`\n3. Copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)",
+        "description": "Enter your Claude.ai credentials.\n\n**Session Key:** Open DevTools (F12) → Application → Cookies → {claude_url} → copy the `sessionKey` cookie value.\n\n**Organization ID:** In DevTools → Network tab, find any request to `/api/organizations/` and copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).",
         "data": {
           "session_key": "Session Key (sessionKey cookie value)",
           "org_id": "Organization ID (UUID from /api/organizations/...)",
@@ -12,7 +12,7 @@
       },
       "reauth": {
         "title": "Re-authenticate Claude Pulse",
-        "description": "Your Claude.ai session key has expired. Follow the steps above to get a new one.",
+        "description": "Your Claude.ai session key has expired. Open DevTools (F12) → Application → Cookies → {claude_url} → copy the new `sessionKey` value.",
         "data": {
           "session_key": "New Session Key"
         }
@@ -31,7 +31,7 @@
     "step": {
       "init": {
         "title": "Update Claude Pulse settings",
-        "description": "Update your Session Key, Organization ID, or update interval.\n\n**How to find your Session Key:**\n1. Open [claude.ai](https://claude.ai) and log in\n2. Open DevTools (F12) → Application → Cookies → `https://claude.ai`\n3. Copy the value of the `sessionKey` cookie\n\n**How to find your Organization ID:**\n1. In DevTools, open the Network tab and reload the page\n2. Find any request URL containing `/api/organizations/`\n3. Copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)",
+        "description": "Update your Session Key, Organization ID, or polling interval.\n\n**Session Key:** Open DevTools (F12) → Application → Cookies → {claude_url} → copy the `sessionKey` cookie value.\n\n**Organization ID:** In DevTools → Network tab, find any request to `/api/organizations/` and copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).",
         "data": {
           "session_key": "Session Key (sessionKey cookie value)",
           "org_id": "Organization ID (UUID from /api/organizations/...)",

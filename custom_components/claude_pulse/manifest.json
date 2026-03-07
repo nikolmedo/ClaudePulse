@@ -1,12 +1,12 @@
 {
   "domain": "claude_pulse",
   "name": "Claude Pulse",
-  "version": "1.0.0",
+  "codeowners": ["@nikolmedo"],
   "config_flow": true,
   "documentation": "https://github.com/nikolmedo/ClaudePulse",
-  "issue_tracker": "https://github.com/nikolmedo/ClaudePulse/issues",
-  "codeowners": ["@nikolmedo"],
-  "iot_class": "cloud_polling",
   "integration_type": "service",
-  "requirements": []
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/nikolmedo/ClaudePulse/issues",
+  "requirements": [],
+  "version": "1.0.0"
 }

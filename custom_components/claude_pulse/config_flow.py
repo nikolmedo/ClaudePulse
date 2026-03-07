@@ -98,6 +98,7 @@ class ClaudePulseConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=STEP_USER_SCHEMA,
             errors=errors,
+            description_placeholders={"claude_url": "claude.ai"},
         )
 
     async def async_step_reauth(
@@ -129,6 +130,7 @@ class ClaudePulseConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth",
             data_schema=STEP_REAUTH_SCHEMA,
             errors=errors,
+            description_placeholders={"claude_url": "claude.ai"},
         )
 
 
@@ -189,4 +191,5 @@ class ClaudePulseOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=schema,
             errors=errors,
+            description_placeholders={"claude_url": "claude.ai"},
         )

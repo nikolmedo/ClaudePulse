@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+custom_components/claude_pulse/__pycache__/
+*.py[cod]
+*.pyo
+
+# Home Assistant local config (never commit credentials)
+claude_config.json
+
+# Editors
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
