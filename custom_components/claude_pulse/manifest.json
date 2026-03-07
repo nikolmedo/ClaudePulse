@@ -7,5 +7,6 @@
   "issue_tracker": "https://github.com/nikolmedo/ClaudePulse/issues",
   "codeowners": ["@nikolmedo"],
   "iot_class": "cloud_polling",
+  "integration_type": "service",
   "requirements": []
 }
