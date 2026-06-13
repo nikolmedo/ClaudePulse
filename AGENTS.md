@@ -1,6 +1,6 @@
 # AGENTS.md — Claude Pulse
 
-Guidance for AI coding agents and human contributors working on this repository.
+Guidance for AI coding agents (and human contributors) working on this repository.
 
 ## What this project is
 
