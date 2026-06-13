@@ -18,3 +18,20 @@ jobs:
 
         - name: Hassfest validation
           uses: "home-assistant/actions/hassfest@master"
+
+  test:
+    runs-on: "ubuntu-latest"
+    name: Run tests
+    steps:
+      - uses: "actions/checkout@v6"
+
+      - name: Set up Python
+        uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+
+      - name: Run pytest
+        run: python -m pytest tests -v

@@ -3,6 +3,8 @@ __pycache__/
 custom_components/claude_pulse/__pycache__/
 *.py[cod]
 *.pyo
+.venv/
+.pytest_cache/
 
 # Home Assistant local config (never commit credentials)
 claude_config.json

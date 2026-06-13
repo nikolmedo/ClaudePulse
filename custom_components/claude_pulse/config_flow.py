@@ -8,16 +8,13 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .api import ClaudeApiClient, ClaudeApiError, ClaudeAuthError
 from .const import (
-    CLAUDE_BASE_URL,
-    CLAUDE_HEADERS,
     CONF_ORG_ID,
     CONF_SESSION_KEY,
     CONF_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
-    ENDPOINT_ORG_USAGE,
-    ENDPOINT_USAGE,
     MIN_UPDATE_INTERVAL,
 )
 
@@ -45,22 +42,18 @@ async def _test_credentials(hass, session_key: str, org_id: str) -> str | None:
 
     Returns None on success, or an error key string that maps to strings.json.
     """
-    session = async_get_clientsession(hass)
-    headers = {**CLAUDE_HEADERS, "Cookie": f"sessionKey={session_key}"}
-    url = (
-        CLAUDE_BASE_URL + ENDPOINT_ORG_USAGE.format(org_id=org_id)
-        if org_id
-        else CLAUDE_BASE_URL + ENDPOINT_USAGE
+    client = ClaudeApiClient(
+        session=async_get_clientsession(hass),
+        session_key=session_key,
+        org_id=org_id,
     )
     try:
-        async with session.get(url, headers=headers, timeout=10) as resp:
-            if resp.status in (401, 403):
-                return "invalid_auth"
-            if resp.status == 200:
-                return None
-            return "cannot_connect"
-    except Exception:  # noqa: BLE001
+        await client.async_validate()
+    except ClaudeAuthError:
+        return "invalid_auth"
+    except ClaudeApiError:
         return "cannot_connect"
+    return None
 
 
 class ClaudePulseConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
