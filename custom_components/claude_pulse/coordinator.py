@@ -6,7 +6,7 @@ Home Assistant. Fetching and parsing live in api.py / models.py.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -26,6 +26,12 @@ from .models import ClaudeUsage
 
 _LOGGER = logging.getLogger(__name__)
 
+# The subscription plan changes rarely, so the organization payload is
+# refreshed far less often than the usage data. Failed fetches are retried
+# sooner so a transient error at startup does not stick for hours.
+ORG_REFRESH_INTERVAL = timedelta(hours=6)
+ORG_RETRY_INTERVAL = timedelta(minutes=15)
+
 
 class ClaudePulseCoordinator(DataUpdateCoordinator):
     """Fetches Claude usage data from claude.ai on a configurable interval."""
@@ -36,6 +42,8 @@ class ClaudePulseCoordinator(DataUpdateCoordinator):
             session_key=entry.data[CONF_SESSION_KEY],
             org_id=entry.data.get(CONF_ORG_ID, ""),
         )
+        self._org: dict | None = None
+        self._org_expires: datetime | None = None
         interval = entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
 
         super().__init__(
@@ -61,4 +69,23 @@ class ClaudePulseCoordinator(DataUpdateCoordinator):
         except ClaudeApiError as err:
             raise UpdateFailed(str(err)) from err
 
-        return ClaudeUsage.from_payload(raw).as_sensor_data()
+        org = await self._async_get_organization()
+        return ClaudeUsage.from_payload(raw, org=org).as_sensor_data()
+
+    async def _async_get_organization(self) -> dict | None:
+        """Return the cached organization payload, refreshing when stale.
+
+        Failures are non-fatal: the usage fetch above is the authority on
+        auth and connectivity, so a broken org call only means the plan
+        sensor keeps its last known value (or "N/A").
+        """
+        now = datetime.now(tz=timezone.utc)
+        if self._org_expires and now < self._org_expires:
+            return self._org
+        try:
+            self._org = await self.client.async_get_organization()
+            self._org_expires = now + ORG_REFRESH_INTERVAL
+        except ClaudeApiError as err:
+            self._org_expires = now + ORG_RETRY_INTERVAL
+            _LOGGER.debug("Organization fetch failed, plan unchanged: %s", err)
+        return self._org

@@ -14,6 +14,7 @@ from .const import (
     CLAUDE_BASE_URL,
     CLAUDE_HEADERS,
     ENDPOINT_ACCOUNT_USAGE,
+    ENDPOINT_ORG_INFO,
     ENDPOINT_ORG_USAGE,
     ENDPOINT_USAGE,
 )
@@ -88,6 +89,33 @@ class ClaudeApiClient:
         raise ClaudeApiError(
             f"All Claude.ai endpoints failed. Last error: {last_error}"
         )
+
+    async def async_get_organization(self) -> dict:
+        """Fetch the raw organization payload (plan / rate-limit tier).
+
+        Raises:
+            ClaudeAuthError: On HTTP 401/403.
+            ClaudeApiError: When no organization ID is configured or the
+                request fails for any other reason.
+        """
+        if not self._org_id:
+            raise ClaudeApiError("No organization ID configured.")
+        url = CLAUDE_BASE_URL + ENDPOINT_ORG_INFO.format(org_id=self._org_id)
+        try:
+            async with self._session.get(
+                url, headers=self._headers, timeout=REQUEST_TIMEOUT
+            ) as resp:
+                if resp.status in (401, 403):
+                    raise ClaudeAuthError(
+                        f"Claude.ai authentication failed (HTTP {resp.status})."
+                    )
+                if resp.status != 200:
+                    raise ClaudeApiError(f"HTTP {resp.status} from {url}")
+                return await resp.json(content_type=None)
+        except (ClaudeAuthError, ClaudeApiError):
+            raise
+        except Exception as err:  # noqa: BLE001
+            raise ClaudeApiError(str(err)) from err
 
     async def async_validate(self) -> None:
         """Verify credentials with a single live request.
