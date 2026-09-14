@@ -18,6 +18,28 @@ FABLE_MODEL_NAME = "fable"
 # tried in order after the ``limits[]`` array. See ``extract_fable``.
 FABLE_FLAT_KEYS = ("seven_day_fable", "fable_weekly", "fable_seven_day", "fable")
 
+# Known ``rate_limit_tier`` values from the organization payload, mapped to
+# display names. Unknown tiers are prettified instead of dropped — see
+# ``detect_plan``.
+PLAN_TIERS = {
+    "default_claude_ai": "Free",
+    "default_free": "Free",
+    "default_claude_pro": "Pro",
+    "default_pro": "Pro",
+    "default_claude_max_5x": "Max 5x",
+    "default_claude_max_20x": "Max 20x",
+    "default_raven": "Team",
+}
+
+# ``capabilities[]`` fallbacks for org payloads without a usable
+# ``rate_limit_tier``, probed in order (most-specific first).
+PLAN_CAPABILITIES = (
+    ("claude_max", "Max"),
+    ("claude_pro", "Pro"),
+    ("raven", "Team"),
+    ("chat", "Free"),
+)
+
 
 @dataclass(frozen=True)
 class ResetInfo:
@@ -122,6 +144,37 @@ def extract_fable(raw: dict) -> tuple[float | None, str | None]:
     return (None, None)
 
 
+def detect_plan(org) -> str:
+    """Derive the subscription plan from the ``/api/organizations/{id}`` payload.
+
+    Reads ``rate_limit_tier`` (e.g. ``default_claude_max_5x``) and falls back
+    to the ``capabilities`` array. Unknown tiers are prettified
+    (``default_claude_foo_7x`` → "Foo 7x") so new plans still render something
+    useful. Returns ``NOT_AVAILABLE`` when nothing can be derived.
+    """
+    if not isinstance(org, dict):
+        return NOT_AVAILABLE
+
+    tier = org.get("rate_limit_tier")
+    if isinstance(tier, str) and tier:
+        if tier in PLAN_TIERS:
+            return PLAN_TIERS[tier]
+        pretty = tier
+        for prefix in ("default_", "claude_"):
+            pretty = pretty.removeprefix(prefix)
+        pretty = pretty.replace("_", " ").strip().capitalize()
+        if pretty:
+            return pretty
+
+    caps = org.get("capabilities")
+    if isinstance(caps, list):
+        for capability, plan in PLAN_CAPABILITIES:
+            if capability in caps:
+                return plan
+
+    return NOT_AVAILABLE
+
+
 @dataclass(frozen=True)
 class ClaudeUsage:
     """A snapshot of Claude.ai usage limits."""
@@ -130,12 +183,17 @@ class ClaudeUsage:
     weekly_pct: float
     session_reset: ResetInfo
     weekly_reset: ResetInfo
-    plan: str = "Pro"
+    plan: str = NOT_AVAILABLE
     fable_pct: float | None = None
     fable_reset: ResetInfo = ResetInfo()
 
     @classmethod
-    def from_payload(cls, raw: dict, now: datetime | None = None) -> ClaudeUsage:
+    def from_payload(
+        cls,
+        raw: dict,
+        now: datetime | None = None,
+        org: dict | None = None,
+    ) -> ClaudeUsage:
         """Build a ClaudeUsage from the raw claude.ai usage API payload.
 
         Expected shape::
@@ -146,6 +204,10 @@ class ClaudeUsage:
         The optional Fable weekly quota is parsed separately by
         :func:`extract_fable`, which handles the ``limits[]`` and legacy
         flat-key shapes. ``fable_pct`` stays ``None`` when absent.
+
+        ``org`` is the (optional) organization payload; the subscription plan
+        is derived from it by :func:`detect_plan` and stays ``NOT_AVAILABLE``
+        when the payload is missing.
         """
         sess = raw.get("five_hour") or {}
         week = raw.get("seven_day") or {}
@@ -155,6 +217,7 @@ class ClaudeUsage:
             weekly_pct=float(week.get("utilization") or 0),
             session_reset=parse_reset_timestamp(sess.get("resets_at"), now),
             weekly_reset=parse_reset_timestamp(week.get("resets_at"), now),
+            plan=detect_plan(org),
             fable_pct=fable_pct,
             fable_reset=parse_reset_timestamp(fable_resets_at, now),
         )

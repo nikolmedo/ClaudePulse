@@ -18,6 +18,7 @@ CLAUDE_BASE_URL = "https://claude.ai"
 ENDPOINT_ORG_USAGE = "/api/organizations/{org_id}/usage"
 ENDPOINT_USAGE = "/api/usage"
 ENDPOINT_ACCOUNT_USAGE = "/api/account/usage"
+ENDPOINT_ORG_INFO = "/api/organizations/{org_id}"
 
 CLAUDE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0",

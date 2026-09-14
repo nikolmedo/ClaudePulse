@@ -33,6 +33,14 @@ MOCK_PAYLOAD_FABLE_FLAT = {
     "seven_day_fable": {"utilization": 63, "resets_at": "2026-06-12T03:45:00Z"},
 }
 
+# Organization payload (plan detection), trimmed to the fields we read.
+MOCK_ORG = {
+    "uuid": "11111111-2222-3333-4444-555555555555",
+    "name": "test@example.com's Organization",
+    "rate_limit_tier": "default_claude_max_5x",
+    "capabilities": ["claude_max", "chat"],
+}
+
 MOCK_CONFIG = {
     "session_key": "sk-ant-sid01-test-key",
     "org_id": "11111111-2222-3333-4444-555555555555",

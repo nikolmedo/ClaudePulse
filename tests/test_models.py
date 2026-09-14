@@ -7,11 +7,13 @@ from custom_components.claude_pulse.models import (
     NOT_AVAILABLE,
     ClaudeUsage,
     ResetInfo,
+    detect_plan,
     extract_fable,
     parse_reset_timestamp,
 )
 
 from .conftest import (
+    MOCK_ORG,
     MOCK_PAYLOAD,
     MOCK_PAYLOAD_FABLE_FLAT,
     MOCK_PAYLOAD_FABLE_LIMITS,
@@ -65,6 +67,35 @@ class TestParseResetTimestamp:
         assert info.countdown == NOT_AVAILABLE
 
 
+class TestDetectPlan:
+    def test_known_tiers(self):
+        assert detect_plan({"rate_limit_tier": "default_claude_ai"}) == "Free"
+        assert detect_plan({"rate_limit_tier": "default_claude_pro"}) == "Pro"
+        assert detect_plan({"rate_limit_tier": "default_claude_max_5x"}) == "Max 5x"
+        assert detect_plan({"rate_limit_tier": "default_claude_max_20x"}) == "Max 20x"
+        assert detect_plan({"rate_limit_tier": "default_raven"}) == "Team"
+
+    def test_unknown_tier_is_prettified(self):
+        assert detect_plan({"rate_limit_tier": "default_claude_ultra_7x"}) == "Ultra 7x"
+
+    def test_capabilities_fallback(self):
+        assert detect_plan({"capabilities": ["claude_max", "chat"]}) == "Max"
+        assert detect_plan({"capabilities": ["claude_pro", "chat"]}) == "Pro"
+        assert detect_plan({"capabilities": ["chat"]}) == "Free"
+
+    def test_tier_wins_over_capabilities(self):
+        assert detect_plan(MOCK_ORG) == "Max 5x"
+
+    def test_missing_or_malformed_returns_not_available(self):
+        assert detect_plan(None) == NOT_AVAILABLE
+        assert detect_plan({}) == NOT_AVAILABLE
+        assert detect_plan("garbage") == NOT_AVAILABLE
+        assert detect_plan({"rate_limit_tier": None, "capabilities": None}) == (
+            NOT_AVAILABLE
+        )
+        assert detect_plan({"capabilities": ["unrelated"]}) == NOT_AVAILABLE
+
+
 class TestClaudeUsage:
     def test_from_payload(self):
         usage = ClaudeUsage.from_payload(MOCK_PAYLOAD, now=NOW)
@@ -72,7 +103,11 @@ class TestClaudeUsage:
         assert usage.weekly_pct == 41.0
         assert usage.session_reset.countdown == "2h 30m"
         assert usage.weekly_reset.is_known
-        assert usage.plan == "Pro"
+        assert usage.plan == NOT_AVAILABLE
+
+    def test_from_payload_with_org(self):
+        usage = ClaudeUsage.from_payload(MOCK_PAYLOAD, now=NOW, org=MOCK_ORG)
+        assert usage.plan == "Max 5x"
 
     def test_from_empty_payload(self):
         usage = ClaudeUsage.from_payload({})
@@ -86,13 +121,15 @@ class TestClaudeUsage:
         assert usage.weekly_pct == 0.0
 
     def test_as_sensor_data_keys(self):
-        data = ClaudeUsage.from_payload(MOCK_PAYLOAD, now=NOW).as_sensor_data()
+        data = ClaudeUsage.from_payload(
+            MOCK_PAYLOAD, now=NOW, org=MOCK_ORG
+        ).as_sensor_data()
         assert data["session_pct"] == 22.0
         assert data["session_used"] == 22.0
         assert data["session_limit"] == 100.0
         assert data["weekly_pct"] == 41.0
         assert data["session_reset_countdown"] == "2h 30m"
-        assert data["plan"] == "Pro"
+        assert data["plan"] == "Max 5x"
 
     def test_as_sensor_data_weekly_reset_summary(self):
         data = ClaudeUsage.from_payload(MOCK_PAYLOAD, now=NOW).as_sensor_data()

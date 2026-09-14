@@ -11,12 +11,13 @@ from custom_components.claude_pulse.api import (
     ClaudeAuthError,
 )
 
-from .conftest import MOCK_PAYLOAD
+from .conftest import MOCK_ORG, MOCK_PAYLOAD
 
 ORG_ID = "11111111-2222-3333-4444-555555555555"
 ORG_URL = f"https://claude.ai/api/organizations/{ORG_ID}/usage"
 USAGE_URL = "https://claude.ai/api/usage"
 ACCOUNT_URL = "https://claude.ai/api/account/usage"
+ORG_INFO_URL = f"https://claude.ai/api/organizations/{ORG_ID}"
 
 
 @pytest.fixture
@@ -98,6 +99,43 @@ async def test_session_key_sent_as_cookie(session):
         await client.async_get_usage()
         request = list(mocked.requests.values())[0][0]
         assert request.kwargs["headers"]["Cookie"] == "sessionKey=my-secret"
+
+
+async def test_get_organization_success(session):
+    client = ClaudeApiClient(session, "test-key", ORG_ID)
+    with aioresponses() as mocked:
+        mocked.get(ORG_INFO_URL, payload=MOCK_ORG)
+        assert await client.async_get_organization() == MOCK_ORG
+
+
+async def test_get_organization_requires_org_id(session):
+    client = ClaudeApiClient(session, "test-key")
+    with pytest.raises(ClaudeApiError, match="No organization ID"):
+        await client.async_get_organization()
+
+
+async def test_get_organization_auth_error(session):
+    client = ClaudeApiClient(session, "expired-key", ORG_ID)
+    with aioresponses() as mocked:
+        mocked.get(ORG_INFO_URL, status=403)
+        with pytest.raises(ClaudeAuthError):
+            await client.async_get_organization()
+
+
+async def test_get_organization_http_error(session):
+    client = ClaudeApiClient(session, "test-key", ORG_ID)
+    with aioresponses() as mocked:
+        mocked.get(ORG_INFO_URL, status=500)
+        with pytest.raises(ClaudeApiError):
+            await client.async_get_organization()
+
+
+async def test_get_organization_network_error(session):
+    client = ClaudeApiClient(session, "test-key", ORG_ID)
+    with aioresponses() as mocked:
+        mocked.get(ORG_INFO_URL, exception=aiohttp.ClientConnectionError("boom"))
+        with pytest.raises(ClaudeApiError):
+            await client.async_get_organization()
 
 
 async def test_validate_success(session):

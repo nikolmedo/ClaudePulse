@@ -11,19 +11,27 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.claude_pulse.api import ClaudeApiError, ClaudeAuthError
 from custom_components.claude_pulse.const import DOMAIN
 
-from .conftest import MOCK_CONFIG, MOCK_PAYLOAD
+from .conftest import MOCK_CONFIG, MOCK_ORG, MOCK_PAYLOAD
 
 GET_USAGE = "custom_components.claude_pulse.api.ClaudeApiClient.async_get_usage"
+GET_ORG = (
+    "custom_components.claude_pulse.api.ClaudeApiClient.async_get_organization"
+)
 
 
 async def _setup_entry(
-    hass: HomeAssistant, data: dict | None = None
+    hass: HomeAssistant,
+    data: dict | None = None,
+    org: dict | Exception = MOCK_ORG,
 ) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN, data=data or MOCK_CONFIG, unique_id=MOCK_CONFIG["org_id"]
     )
     entry.add_to_hass(hass)
-    with patch(GET_USAGE, return_value=MOCK_PAYLOAD):
+    org_kwargs = (
+        {"side_effect": org} if isinstance(org, Exception) else {"return_value": org}
+    )
+    with patch(GET_USAGE, return_value=MOCK_PAYLOAD), patch(GET_ORG, **org_kwargs):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     return entry
@@ -91,8 +99,19 @@ async def test_sensor_values(hass: HomeAssistant) -> None:
     assert state_of("session_pct").state == "22.0"
     assert state_of("weekly_pct").state == "41.0"
     assert state_of("session_limit").state == "100.0"
-    assert state_of("plan").state == "Pro"
+    assert state_of("plan").state == "Max 5x"
     assert state_of("weekly_reset").state != "N/A"
+
+
+async def test_org_fetch_failure_is_non_fatal(hass: HomeAssistant) -> None:
+    entry = await _setup_entry(hass, org=ClaudeApiError("org endpoint down"))
+    assert entry.state is ConfigEntryState.LOADED
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_plan"
+    )
+    assert hass.states.get(entity_id).state == "N/A"
 
 
 async def test_unload_entry(hass: HomeAssistant) -> None:
