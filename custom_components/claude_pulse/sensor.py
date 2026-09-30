@@ -16,7 +16,13 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_FABLE_QUOTA, DEFAULT_FABLE_QUOTA, DOMAIN
+from .const import (
+    CONF_FABLE_QUOTA,
+    DEFAULT_FABLE_QUOTA,
+    DEFAULT_NAME,
+    DOMAIN,
+    LEGACY_ENTRY_TITLE,
+)
 from .coordinator import ClaudePulseCoordinator
 
 
@@ -132,6 +138,18 @@ async def async_setup_entry(
     )
 
 
+def _device_name(entry: ConfigEntry) -> str:
+    """Name the device after the config entry so several accounts are distinguishable.
+
+    Entries created before the name field existed carry the legacy title and
+    keep the original device name, so nothing changes for existing setups.
+    """
+    title = (entry.title or "").strip()
+    if not title or title == LEGACY_ENTRY_TITLE:
+        return DEFAULT_NAME
+    return title
+
+
 class ClaudePulseSensor(CoordinatorEntity[ClaudePulseCoordinator], SensorEntity):
     """A single Claude Pulse sensor backed by the shared coordinator."""
 
@@ -149,7 +167,7 @@ class ClaudePulseSensor(CoordinatorEntity[ClaudePulseCoordinator], SensorEntity)
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name="Claude Pulse",
+            name=_device_name(entry),
             manufacturer="nolmedo.dev",
             model="Claude.ai Usage Monitor",
             entry_type="service",

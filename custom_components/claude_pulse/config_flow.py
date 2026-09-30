@@ -3,18 +3,21 @@ from __future__ import annotations
 
 import logging
 
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import ClaudeApiClient, ClaudeApiError, ClaudeAuthError
 from .const import (
     CONF_FABLE_QUOTA,
+    CONF_NAME,
     CONF_ORG_ID,
     CONF_SESSION_KEY,
     CONF_UPDATE_INTERVAL,
     DEFAULT_FABLE_QUOTA,
+    DEFAULT_NAME,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MIN_UPDATE_INTERVAL,
@@ -24,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_SCHEMA = vol.Schema(
     {
+        vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
         vol.Required(CONF_SESSION_KEY): str,
         vol.Required(CONF_ORG_ID): str,
         vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): vol.All(
@@ -45,8 +49,14 @@ async def _test_credentials(hass, session_key: str, org_id: str) -> str | None:
 
     Returns None on success, or an error key string that maps to strings.json.
     """
+    # Use a throwaway session without a cookie jar so the check really uses
+    # the entered session key and cannot pick up cookies of another account
+    # from Home Assistant's shared session.
+    session = async_create_clientsession(
+        hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
+    )
     client = ClaudeApiClient(
-        session=async_get_clientsession(hass),
+        session=session,
         session_key=session_key,
         org_id=org_id,
     )
@@ -56,6 +66,9 @@ async def _test_credentials(hass, session_key: str, org_id: str) -> str | None:
         return "invalid_auth"
     except ClaudeApiError:
         return "cannot_connect"
+    finally:
+        # The connector is shared with HA, so detach instead of close.
+        session.detach()
     return None
 
 
@@ -87,7 +100,9 @@ class ClaudePulseConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_ORG_ID],
             )
             if error_key is None:
-                return self.async_create_entry(title="ClaudePulse", data=user_input)
+                data = dict(user_input)
+                title = data.pop(CONF_NAME, "").strip() or DEFAULT_NAME
+                return self.async_create_entry(title=title, data=data)
             errors["base"] = error_key
 
         return self.async_show_form(
@@ -144,23 +159,30 @@ class ClaudePulseOptionsFlow(config_entries.OptionsFlow):
         current = self._entry.data
 
         if user_input is not None:
-            error_key = await _test_credentials(
-                self.hass,
-                user_input[CONF_SESSION_KEY],
-                user_input[CONF_ORG_ID],
-            )
-            if error_key is None:
-                # If org_id changed, update the unique_id so the entry stays unique
-                new_org_id = user_input[CONF_ORG_ID]
-                if new_org_id != current.get(CONF_ORG_ID):
-                    await self.hass.config_entries.async_set_unique_id(new_org_id)
-
-                self.hass.config_entries.async_update_entry(
-                    self._entry, data={**current, **user_input}
+            new_org_id = user_input[CONF_ORG_ID]
+            if new_org_id != self._entry.unique_id and any(
+                other.unique_id == new_org_id
+                for other in self.hass.config_entries.async_entries(DOMAIN)
+                if other.entry_id != self._entry.entry_id
+            ):
+                errors["base"] = "already_configured"
+            else:
+                error_key = await _test_credentials(
+                    self.hass, user_input[CONF_SESSION_KEY], new_org_id
                 )
-                await self.hass.config_entries.async_reload(self._entry.entry_id)
-                return self.async_create_entry(title="", data={})
-            errors["base"] = error_key
+                if error_key is None:
+                    # Keep the unique_id in sync with the org ID. (The old
+                    # code called a non-existent async_set_unique_id here.)
+                    self.hass.config_entries.async_update_entry(
+                        self._entry,
+                        data={**current, **user_input},
+                        unique_id=new_org_id,
+                    )
+                    await self.hass.config_entries.async_reload(
+                        self._entry.entry_id
+                    )
+                    return self.async_create_entry(title="", data={})
+                errors["base"] = error_key
 
         schema = vol.Schema(
             {

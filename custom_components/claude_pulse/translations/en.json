@@ -3,8 +3,9 @@
     "step": {
       "user": {
         "title": "Connect to Claude.ai",
-        "description": "Enter your Claude.ai credentials.\n\n**Session Key:** Open DevTools (F12) → Application → Cookies → {claude_url} → copy the `sessionKey` cookie value.\n\n**Organization ID:** In DevTools → Network tab, find any request to `/api/organizations/` and copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).",
+        "description": "Enter your Claude.ai credentials. To monitor several accounts, add the integration once per account and give each one its own name.\n\n**Tip:** Copy each account's session key from a separate browser profile or private window — logging out of an account invalidates its session key.\n\n**Session Key:** Open DevTools (F12) → Application → Cookies → {claude_url} → copy the `sessionKey` cookie value.\n\n**Organization ID:** In DevTools → Network tab, find any request to `/api/organizations/` and copy the UUID from the URL (e.g. `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).",
         "data": {
+          "name": "Name (e.g. Private or Work — used for the device and entity IDs)",
           "session_key": "Session Key (sessionKey cookie value)",
           "org_id": "Organization ID (UUID from /api/organizations/...)",
           "update_interval": "Update interval in seconds (min 30)",
@@ -43,7 +44,8 @@
     },
     "error": {
       "invalid_auth": "Invalid session key or Organization ID — authentication failed (HTTP 401/403).",
-      "cannot_connect": "Could not reach claude.ai — check your network connection and try again."
+      "cannot_connect": "Could not reach claude.ai — check your network connection and try again.",
+      "already_configured": "Another Claude Pulse entry already uses this Organization ID."
     }
   }
 }

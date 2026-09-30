@@ -8,10 +8,11 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ClaudeApiClient, ClaudeApiError, ClaudeAuthError
@@ -37,8 +38,15 @@ class ClaudePulseCoordinator(DataUpdateCoordinator):
     """Fetches Claude usage data from claude.ai on a configurable interval."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        # Each config entry gets its own session WITHOUT a cookie jar.
+        # The shared HA session keeps every Set-Cookie from claude.ai in one
+        # global jar, and aiohttp lets jar cookies override the manually set
+        # ``Cookie: sessionKey=...`` header. With two accounts configured,
+        # whichever account responded last would then be used for both.
         self.client = ClaudeApiClient(
-            session=async_get_clientsession(hass),
+            session=async_create_clientsession(
+                hass, cookie_jar=aiohttp.DummyCookieJar()
+            ),
             session_key=entry.data[CONF_SESSION_KEY],
             org_id=entry.data.get(CONF_ORG_ID, ""),
         )
@@ -49,7 +57,7 @@ class ClaudePulseCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=f"{DOMAIN}_{entry.entry_id}",
             update_interval=timedelta(seconds=interval),
         )
 
