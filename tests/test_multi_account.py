@@ -7,7 +7,11 @@ so with two entries, both ended up querying whichever account answered last.
 """
 from __future__ import annotations
 
-from aiohttp import web
+from collections.abc import AsyncGenerator
+from unittest.mock import patch
+
+from aiohttp import ThreadedResolver, web
+import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -21,6 +25,24 @@ KEY_TO_PCT = {
     MOCK_CONFIG["session_key"]: 11,
     MOCK_CONFIG_B["session_key"]: 77,
 }
+
+
+@pytest.fixture
+async def os_resolver() -> AsyncGenerator[None]:
+    """Resolve hostnames through the OS instead of the harness's aiodns mock.
+
+    pytest-homeassistant-custom-component replaces HA's DNS resolver with an
+    aiodns ``AsyncResolver`` that fails here with "'NoneType' object has no
+    attribute 'getaddrinfo'", so "localhost" would never resolve.
+    """
+    resolver = ThreadedResolver()
+    # HA's connector teardown calls ``real_close`` on the mocked resolver.
+    resolver.real_close = resolver.close
+    with patch(
+        "homeassistant.helpers.aiohttp_client._async_make_resolver",
+        return_value=resolver,
+    ):
+        yield
 
 
 async def _fake_claude(aiohttp_server):
@@ -51,7 +73,7 @@ async def _fake_claude(aiohttp_server):
 
 
 async def test_two_accounts_keep_their_own_data(
-    hass: HomeAssistant, aiohttp_server, monkeypatch, socket_enabled
+    hass: HomeAssistant, aiohttp_server, monkeypatch, socket_enabled, os_resolver
 ) -> None:
     server = await _fake_claude(aiohttp_server)
     # Point the client at the fake server. Use "localhost" (a hostname) so a
@@ -106,8 +128,6 @@ async def test_two_accounts_keep_their_own_data(
 
 
 async def test_legacy_entry_keeps_original_device_name(hass: HomeAssistant) -> None:
-    from unittest.mock import patch
-
     entry = MockConfigEntry(
         domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_CONFIG["org_id"],
         title="ClaudePulse",
