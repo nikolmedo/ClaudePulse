@@ -47,6 +47,13 @@ MOCK_CONFIG = {
     "update_interval": 120,
 }
 
+# A second, independent account (different session key and organization).
+MOCK_CONFIG_B = {
+    "session_key": "sk-ant-sid01-second-account",
+    "org_id": "66666666-7777-8888-9999-000000000000",
+    "update_interval": 120,
+}
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):

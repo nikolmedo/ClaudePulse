@@ -7,11 +7,15 @@ CONF_SESSION_KEY = "session_key"
 CONF_ORG_ID = "org_id"
 CONF_UPDATE_INTERVAL = "update_interval"
 CONF_FABLE_QUOTA = "fable_quota"
+CONF_NAME = "name"
 
 # Defaults
 DEFAULT_UPDATE_INTERVAL = 120  # seconds
 MIN_UPDATE_INTERVAL = 30
 DEFAULT_FABLE_QUOTA = True
+DEFAULT_NAME = "Claude Pulse"
+# Title used by entries created before the name field existed.
+LEGACY_ENTRY_TITLE = "ClaudePulse"
 
 # Claude API
 CLAUDE_BASE_URL = "https://claude.ai"

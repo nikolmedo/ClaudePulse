@@ -92,6 +92,14 @@ All entities are grouped under a single **Claude Pulse** device:
 
 ---
 
+## 👥 Multiple accounts
+
+You can monitor several Claude.ai accounts at once: add the integration once per account (**Add Integration → Claude Pulse** again) and give each entry its own **Name**, e.g. `Private` and `Work`. Each account gets its own device and entity IDs such as `sensor.private_session_usage` and `sensor.work_session_usage`.
+
+> Copy each account's session key from a **separate browser profile or private window**. Logging out of an account on claude.ai invalidates its session key.
+
+---
+
 ## 💡 Example automation
 
 Get notified before you burn through your session:
@@ -135,6 +143,7 @@ After setup, click **Configure** on the integration to change:
 | **All endpoints return 404** | Wrong Organization ID. Verify it via DevTools → Network → requests to `/api/organizations/`. |
 | **Sensors show `unavailable` after setup** | Check **Settings → System → Logs** for `claude_pulse` errors. Network errors at startup are retried automatically. |
 | **Repair notification for Claude Pulse** | Session key expired. Click the notification to open the re-authentication form. |
+| **Two accounts show the same data / one is `unavailable`** | Fixed in 1.2.0 — earlier versions shared one cookie jar between all entries. Update and reload both entries. |
 
 Still stuck? [Open an issue](https://github.com/nikolmedo/ClaudePulse/issues) with your Home Assistant logs.
 

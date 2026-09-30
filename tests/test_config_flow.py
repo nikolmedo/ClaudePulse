@@ -11,7 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.claude_pulse.api import ClaudeApiError, ClaudeAuthError
 from custom_components.claude_pulse.const import DOMAIN
 
-from .conftest import MOCK_CONFIG
+from .conftest import MOCK_CONFIG, MOCK_CONFIG_B
 
 VALIDATE = "custom_components.claude_pulse.config_flow.ClaudeApiClient.async_validate"
 
@@ -29,7 +29,7 @@ async def test_user_flow_success(hass: HomeAssistant) -> None:
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "ClaudePulse"
+    assert result["title"] == "Claude Pulse"
     # The fable_quota toggle defaults to True and is injected by the schema.
     assert result["data"] == {**MOCK_CONFIG, "fable_quota": True}
 
@@ -131,3 +131,74 @@ async def test_options_flow_updates_entry(hass: HomeAssistant) -> None:
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.data["update_interval"] == 300
+
+
+async def test_user_flow_custom_name_becomes_title(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    with patch(VALIDATE, return_value=None):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={**MOCK_CONFIG, "name": "Work"}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Work"
+    # The name is stored as the entry title only, not in the entry data.
+    assert "name" not in result["data"]
+
+
+async def test_second_account_can_be_added(hass: HomeAssistant) -> None:
+    MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_CONFIG["org_id"]
+    ).add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    with patch(VALIDATE, return_value=None):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={**MOCK_CONFIG_B, "name": "Work"}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 2
+
+
+async def test_options_flow_org_change_updates_unique_id(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_CONFIG["org_id"]
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    new_input = {**MOCK_CONFIG, "org_id": MOCK_CONFIG_B["org_id"]}
+    with patch(VALIDATE, return_value=None):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input=new_input
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.unique_id == MOCK_CONFIG_B["org_id"]
+    assert entry.data["org_id"] == MOCK_CONFIG_B["org_id"]
+
+
+async def test_options_flow_rejects_org_of_other_entry(hass: HomeAssistant) -> None:
+    MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG_B, unique_id=MOCK_CONFIG_B["org_id"]
+    ).add_to_hass(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_CONFIG["org_id"]
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    with patch(VALIDATE, return_value=None):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={**MOCK_CONFIG, "org_id": MOCK_CONFIG_B["org_id"]},
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "already_configured"}
+    assert entry.unique_id == MOCK_CONFIG["org_id"]
